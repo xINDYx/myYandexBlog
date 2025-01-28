@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${post.title}">Пост</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            text-align: center;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+        .actions {
+            margin-top: 20px;
+        }
+        .comments {
+            margin-top: 20px;
+        }
+        .comment {
+            padding: 10px;
+            border: 1px solid #ddd;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+        .comment textarea {
+            width: 100%;
+            height: 50px;
+        }
+        .comment-actions {
+            margin-top: 5px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<a th:href="@{/posts}" style="display: block; margin-bottom: 10px;">← На уровень выше</a>
+<h1 th:text="${post.title}"></h1>
+
+<img th:src="${post.imageUrl}" alt="Картинка поста">
+<p th:each="paragraph : ${post.content.split('\n')}" th:text="${paragraph}"></p>
+
+<p><strong>Теги:</strong> <span th:text="${#strings.arrayJoin(post.tags, ', ')}"></span></p>
+
+<div class="actions">
+    <form th:action="@{/posts/{id}(id=${post.id})}" method="post" style="display:inline;">
+        <input type="hidden" name="_method" value="delete">
+        <button type="submit">Удалить пост</button>
+    </form>
+
+    <button onclick="toggleEditForm()">Редактировать</button>
+
+    <form th:action="@{/posts/{id}/like(id=${post.id})}" method="post" style="display:inline;">
+        <button type="submit">❤️ Лайк (<span th:text="${post.likesCount}"></span>)</button>
+    </form>
+</div>
+
+<!-- Форма редактирования -->
+<div id="editForm" class="hidden">
+    <h2>Редактировать пост</h2>
+    <form th:action="@{/posts/{id}/edit(id=${post.id})}" method="post">
+        <label for="title">Название поста:</label>
+        <input type="text" id="title" name="title" th:value="${post.title}" required>
+
+        <label for="imageUrl">Картинка:</label>
+        <input type="text" id="imageUrl" name="imageUrl" th:value="${post.imageUrl}" required>
+
+        <label for="content">Текст поста:</label>
+        <textarea id="content" name="content" required th:text="${post.content}"></textarea>
+
+        <label for="tags">Теги поста:</label>
+        <input type="text" id="tags" name="tags" th:value="${#strings.arrayJoin(post.tags, ', ')}" required>
+
+        <button type="submit">Сохранить</button>
+    </form>
+</div>
+
+<div class="comments">
+    <h2>Комментарии</h2>
+    <ul>
+        <li th:each="comment : ${comments}" th:id="|comment-${comment.id}|" class="comment" th:onclick="|editComment(${comment.id})|">
+            <span th:id="|comment-text-${comment.id}|" th:text="${comment.content}"></span>
+            <textarea class="hidden" th:id="|comment-input-${comment.id}|" th:text="${comment.content}" onkeydown="checkSubmit(event, ${comment.id})"></textarea>
+
+            <div class="comment-actions hidden" th:id="|comment-actions-${comment.id}|">
+                <form th:action="@{/comments/{id}/edit(id=${comment.id})}" method="post" class="inline-form"
+                      onsubmit="return updateContent(${comment.id})">
+                    <input type="hidden" name="content" th:id="|comment-hidden-input-${comment.id}|" th:value="${comment.content}">
+                    <button type="submit">Сохранить</button>
+                </form>
+
+                <form th:action="@{/comments/{id}/delete(id=${comment.id})}" method="post" class="inline-form">
+                    <button type="submit">Удалить</button>
+                </form>
+            </div>
+        </li>
+    </ul>
+
+    <h3>Добавить комментарий</h3>
+    <form th:action="@{/posts/{id}/comment(id=${post.id})}" method="post">
+        <textarea name="content" required></textarea>
+        <button type="submit">Отправить</button>
+    </form>
+</div>
+
+<script>
+    function toggleEditForm() {
+        const form = document.getElementById('editForm');
+        form.classList.toggle('hidden');
+    }
+
+    function editComment(commentId) {
+        const textElement = document.getElementById(`comment-text-${commentId}`);
+        const inputElement = document.getElementById(`comment-input-${commentId}`);
+        const actionsElement = document.getElementById(`comment-actions-${commentId}`);
+
+        textElement.classList.add('hidden');
+        inputElement.classList.remove('hidden');
+        actionsElement.classList.remove('hidden');
+
+        inputElement.focus();
+    }
+
+    function checkSubmit(event, commentId) {
+        console.log("Key pressed:", event.key, "Ctrl pressed:", event.ctrlKey);
+        if (event.ctrlKey && event.key === 'Enter') {
+            console.log("Ctrl+Enter pressed for comment:", commentId);
+            updateContent(commentId);
+            document.querySelector(`#comment-${commentId} form`).submit();
+        }
+    }
+
+    function updateContent(commentId) {
+        let textarea = document.getElementById(`comment-input-${commentId}`);
+        let hiddenInput = document.getElementById(`comment-hidden-input-${commentId}`);
+
+        hiddenInput.value = textarea.value;
+
+        return true;
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        document.querySelectorAll("textarea").forEach(textarea => {
+            textarea.addEventListener("input", function() {
+                let commentId = this.id.replace("comment-input-", "");
+                let hiddenInput = document.getElementById(`comment-hidden-input-${commentId}`);
+                hiddenInput.value = this.value;
+            });
+
+            textarea.addEventListener("keydown", function(event) {
+                checkSubmit(event, this.id.replace("comment-input-", ""));
+            });
+        });
+    });
+</script>
+
+
+</body>
+</html>
