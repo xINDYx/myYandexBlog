@@ -2,7 +2,7 @@
 
 ## Описание
 
-Веб-приложение блога на Spring Framework 6.1+, Java 21 и Gradle. Использует базу данных H2 и запускается в Tomcat.
+Веб-приложение блога на Spring Framework 6.1+, Spring Boot 3.4.2, Java 21 и Maven. Использует базу данных H2.
 
 ## Функции
 
@@ -22,7 +22,7 @@
 ## Технологии
 - **Язык**: Java 21
 - **Фреймворк**: Spring Framework 6.1+
-- **Сборка**: Gradle
+- **Сборка**: Maven
 - **База данных**: H2
 - **Шаблоны**: Thymeleaf
 - **Контейнер**: Tomcat
@@ -34,13 +34,18 @@
    https://github.com/xINDYx/myYandexBlog
    ```
 
-2. Открыть в браузере:
+3. Запустить:
+   ```
+   java -jar ./target/blog.jar
+   ```
+
+3. Открыть в браузере:
    ```
    http://localhost:8080/posts
    ```
 
 ## Тесты
 ```sh
-./gradle test
+./mvn test
 ```
 

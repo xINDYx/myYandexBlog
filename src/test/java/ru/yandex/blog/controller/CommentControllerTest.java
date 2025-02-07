@@ -2,20 +2,26 @@ package ru.yandex.blog.controller;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import ru.yandex.blog.model.Comment;
 import ru.yandex.blog.service.CommentService;
 import ru.yandex.blog.service.PostService;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-public class CommentControllerTest {
+@ExtendWith(MockitoExtension.class)
+class CommentControllerTest {
+
+    private MockMvc mockMvc;
 
     @Mock
     private CommentService commentService;
@@ -26,11 +32,8 @@ public class CommentControllerTest {
     @InjectMocks
     private CommentController commentController;
 
-    private MockMvc mockMvc;
-
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
         mockMvc = MockMvcBuilders.standaloneSetup(commentController).build();
     }
 
@@ -40,17 +43,20 @@ public class CommentControllerTest {
         String newContent = "Updated comment content";
         Long postId = 2L;
 
-        Comment comment = new Comment(commentId, postId, "Old content");
+        Comment comment = new Comment();
+        comment.setId(commentId);
+        comment.setContent(newContent);
 
         when(commentService.findById(commentId)).thenReturn(comment);
         when(commentService.getPostIdByCommentId(commentId)).thenReturn(postId);
+        doNothing().when(commentService).saveComment(any(Comment.class));
 
         mockMvc.perform(post("/comments/{id}/edit", commentId)
                         .param("content", newContent))
-                .andExpect(status().is3xxRedirection())  // проверка на редирект
-                .andExpect(header().string("Location", "/posts/" + postId));
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/listposts/" + postId));
 
-        verify(commentService, times(1)).updateComment(comment);
+        verify(commentService, times(1)).saveComment(comment);
     }
 
     @Test
@@ -59,10 +65,12 @@ public class CommentControllerTest {
         Long postId = 2L;
 
         when(commentService.getPostIdByCommentId(commentId)).thenReturn(postId);
+        doNothing().when(commentService).deleteById(commentId);
+        doNothing().when(postService).decreaseCommentCount(postId);
 
         mockMvc.perform(post("/comments/{id}/delete", commentId))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(header().string("Location", "/posts/" + postId));
+                .andExpect(redirectedUrl("/listposts/" + postId));
 
         verify(commentService, times(1)).deleteById(commentId);
         verify(postService, times(1)).decreaseCommentCount(postId);

@@ -1,74 +1,51 @@
 package ru.yandex.blog.repository;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import ru.yandex.blog.model.Comment;
 
 import java.util.List;
 
-import static org.mockito.Mockito.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@ExtendWith(SpringExtension.class)
+@DataJpaTest
 class CommentRepositoryTest {
 
-    private JdbcNativeCommentRepository commentRepository;
-
-    @Mock
-    private JdbcTemplate jdbcTemplate;
-
-    @BeforeAll
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-        commentRepository = new JdbcNativeCommentRepository(jdbcTemplate);
-    }
+    @Autowired
+    private CommentRepository commentRepository;
 
     @Test
-    void testFindByPostId() {
-        Long postId = 1L;
-        Comment expectedComment = new Comment(1L, postId, "Test comment");
-
-        when(jdbcTemplate.query(any(String.class), any(Object[].class), any(RowMapper.class)))
-                .thenReturn(List.of(expectedComment));
-
-        List<Comment> comments = commentRepository.findByPostId(postId);
-
-        assertNotNull(comments);
-        assertEquals(1, comments.size());
-        assertEquals("Test comment", comments.get(0).getContent());
-    }
-
-    @Test
-    void testSave() {
-        Comment comment = new Comment(1L, 1L, "New comment");
-        String sql = "INSERT INTO comments (post_id, content) VALUES (?, ?)";
-
+    void testSaveAndFindByPostId() {
+        Comment comment = new Comment(null, 1L, "Test content");
         commentRepository.save(comment);
 
-        verify(jdbcTemplate, times(1)).update(eq(sql), eq(comment.getPostId()), eq(comment.getContent()));
-    }
+        List<Comment> comments = commentRepository.findByPostId(1L);
 
-    @Test
-    void testUpdate() {
-        Comment comment = new Comment(1L, 1L, "Updated comment");
-        String sql = "UPDATE comments SET post_id = ?, content = ? WHERE id = ?";
-
-        commentRepository.update(comment);
-
-        verify(jdbcTemplate, times(1)).update(eq(sql), eq(comment.getPostId()), eq(comment.getContent()), eq(comment.getId()));
+        assertThat(comments).isNotEmpty();
+        assertThat(comments.get(0).getContent()).isEqualTo("Test content");
     }
 
     @Test
     void testDeleteById() {
-        Long commentId = 1L;
+        Comment comment = new Comment(null, 2L, "To be deleted");
+        commentRepository.save(comment);
 
-        commentRepository.deleteById(commentId);
+        commentRepository.deleteById(comment.getId());
 
-        verify(jdbcTemplate, times(1)).update(eq("delete from comments where id = ?"), eq(commentId));
+        assertThat(commentRepository.findById(comment.getId())).isEmpty();
+    }
+
+    @Test
+    void testGetPostIdByCommentId() {
+        Comment comment = new Comment(null, 3L, "Post ID fetch test");
+        commentRepository.save(comment);
+
+        Long postId = commentRepository.getPostIdByCommentId(comment.getId());
+
+        assertThat(postId).isEqualTo(3L);
     }
 }

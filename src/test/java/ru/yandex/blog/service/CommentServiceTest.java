@@ -1,76 +1,89 @@
 package ru.yandex.blog.service;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.init.ScriptUtils;
-import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
-import ru.yandex.blog.config.TestDataSourceConfig;
-import ru.yandex.blog.model.Comment;
-import ru.yandex.blog.repository.CommentRepository;
-import ru.yandex.blog.repository.JdbcNativeCommentRepository;
-
-import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.SQLException;
-
+import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringJUnitConfig(TestDataSourceConfig.class)
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.*;
+
+import ru.yandex.blog.model.Comment;
+import ru.yandex.blog.repository.CommentRepository;
+import ru.yandex.blog.repository.PostRepository;
+import ru.yandex.blog.exception.CommentNotFoundException;
+
+import java.util.Optional;
+
 public class CommentServiceTest {
 
-    @Autowired
-    private CommentService commentService;
-
-    @Autowired
-    private DataSource dataSource;
-
-    @Autowired
+    @Mock
     private CommentRepository commentRepository;
 
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+    @Mock
+    private PostRepository postRepository;
 
-    private JdbcNativeCommentRepository repository;
-
-    private Comment testComment;
+    private CommentService commentService;
 
     @BeforeEach
-    void setUp() throws SQLException {
-        repository = new JdbcNativeCommentRepository(jdbcTemplate);
-
-        try (Connection conn = dataSource.getConnection()) {
-            ScriptUtils.executeSqlScript(conn, new org.springframework.core.io.ClassPathResource("schema-test.sql"));
-        }
-
-        jdbcTemplate.update("TRUNCATE TABLE comments RESTART IDENTITY");
-
-        testComment = new Comment(1L, 1L, "Test comment");
-        commentRepository.save(testComment);
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        commentService = new CommentService(postRepository, commentRepository);
     }
 
     @Test
-    void testFindById() {
-        Comment foundComment = commentService.findById(testComment.getId());
+    void testFindById_Success() {
+        Comment comment = new Comment();
+        comment.setId(1L);
+        comment.setContent("Test Comment");
+
+        when(commentRepository.findById(1L)).thenReturn(Optional.of(comment));
+
+        Comment foundComment = commentService.findById(1L);
+
         assertNotNull(foundComment);
-        assertEquals(testComment.getContent(), foundComment.getContent());
+        assertEquals(1L, foundComment.getId());
+        assertEquals("Test Comment", foundComment.getContent());
     }
 
     @Test
-    void testUpdateComment() {
-        testComment.setContent("Updated comment");
-        commentService.updateComment(testComment);
+    void testFindById_CommentNotFound() {
+        when(commentRepository.findById(1L)).thenReturn(Optional.empty());
 
-        Comment updatedComment = commentRepository.findById(testComment.getId());
-        assertEquals("Updated comment", updatedComment.getContent());
+        CommentNotFoundException exception = assertThrows(CommentNotFoundException.class, () -> {
+            commentService.findById(1L);
+        });
+        assertEquals("Comment with id 1 not found", exception.getMessage());
+    }
+
+    @Test
+    void testSaveComment() {
+        Comment comment = new Comment();
+        comment.setId(1L);
+        comment.setContent("New Comment");
+
+        commentService.saveComment(comment);
+
+        verify(commentRepository, times(1)).save(comment);
+    }
+
+    @Test
+    void testDeleteById() {
+        Long commentId = 1L;
+
+        commentService.deleteById(commentId);
+
+        verify(commentRepository, times(1)).deleteById(commentId);
     }
 
     @Test
     void testGetPostIdByCommentId() {
-        Long postId = commentService.getPostIdByCommentId(testComment.getId());
+        Long commentId = 1L;
+        Long postId = 2L;
 
-        assertNotNull(postId);
-        assertEquals(testComment.getPostId(), postId);
+        when(commentRepository.getPostIdByCommentId(commentId)).thenReturn(postId);
+
+        Long retrievedPostId = commentService.getPostIdByCommentId(commentId);
+
+        assertEquals(postId, retrievedPostId);
     }
 }

@@ -2,135 +2,157 @@ package ru.yandex.blog.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.init.ScriptUtils;
-import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
-import ru.yandex.blog.config.TestDataSourceConfig;
-import ru.yandex.blog.model.Post;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import ru.yandex.blog.exception.PostNotFoundException;
 import ru.yandex.blog.model.Comment;
+import ru.yandex.blog.model.Post;
 import ru.yandex.blog.repository.CommentRepository;
 import ru.yandex.blog.repository.PostRepository;
 
-import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.List;
+import java.util.Arrays;
+import java.util.Optional;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringJUnitConfig(TestDataSourceConfig.class)
-public class PostServiceTest {
+class PostServiceTest {
 
-    @Autowired
-    private PostService postService;
-
-    @Autowired
-    private DataSource dataSource;
-
-    @Autowired
+    @Mock
     private PostRepository postRepository;
 
-    @Autowired
+    @Mock
     private CommentRepository commentRepository;
 
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+    @InjectMocks
+    private PostService postService;
 
-    private Post testPost;
-    private Comment testComment;
+    private Post post;
+    private Comment comment;
 
     @BeforeEach
-    void setUp() throws SQLException {
-        try (Connection conn = dataSource.getConnection()) {
-            ScriptUtils.executeSqlScript(conn, new org.springframework.core.io.ClassPathResource("schema-test.sql"));
-        }
+    void setUp() {
+        post = new Post();
+        post.setId(1L);
+        post.setTitle("Test Post");
+        post.setContent("Test Content");
+        post.setImageUrl("http://example.com/image.jpg");
+        post.setTags("tag1, tag2");
+        post.setLikesCount(10);
+        post.setCommentsCount(5);
 
-        jdbcTemplate.update("TRUNCATE TABLE posts RESTART IDENTITY");
-        jdbcTemplate.update("TRUNCATE TABLE comments RESTART IDENTITY");
+        comment = new Comment();
+        comment.setId(1L);
+        comment.setPostId(1L);
+        comment.setContent("Test comment");
 
-        testPost = new Post(1L, "Test Post", "Test image", "Content of the test post", "test tags", 0, 0);
-        postRepository.save(testPost);
-
-        testComment = new Comment(1L, testPost.getId(), "Test comment");
-        commentRepository.save(testComment);
+        MockitoAnnotations.openMocks(this);
+        postService = new PostService(postRepository, commentRepository);
     }
 
     @Test
     void testFindAll() {
-        List<Post> posts = postService.findAll(null, 0, 10);
+        when(postRepository.findAll(anyString(), anyInt(), anyInt())).thenReturn(Arrays.asList(post));
+
+        var posts = postService.findAll("tag1", 0, 10);
+
         assertNotNull(posts);
-        assertTrue(posts.size() > 0);
+        assertEquals(1, posts.size());
+        assertEquals("Test Post", posts.get(0).getTitle());
+        verify(postRepository, times(1)).findAll(anyString(), anyInt(), anyInt());
     }
 
     @Test
-    void testGetPostById() {
-        Post foundPost = postService.getPostById(testPost.getId());
-        assertNotNull(foundPost);
-        assertEquals(testPost.getId(), foundPost.getId());
-        assertEquals(testPost.getTitle(), foundPost.getTitle());
+    void testGetPostById_PostNotFound() {
+        when(postRepository.findById(anyLong())).thenReturn(Optional.empty());
+
+        PostNotFoundException exception = assertThrows(PostNotFoundException.class, () -> postService.getPostById(1L));
+        assertEquals("Post with id 1 not found", exception.getMessage());
     }
 
     @Test
-    void testGetCommentsByPostId() {
-        List<Comment> comments = postService.getCommentsByPostId(testPost.getId());
-        assertNotNull(comments);
-        assertEquals(1, comments.size());
-        assertEquals(testComment.getContent(), comments.get(0).getContent());
-    }
+    void testGetPostById_Success() {
+        when(postRepository.findById(anyLong())).thenReturn(Optional.of(post));
 
-    @Test
-    void testAddComment() {
-        postService.addComment(testPost.getId(), "New Comment");
-        List<Comment> comments = postService.getCommentsByPostId(testPost.getId());
-        assertNotNull(comments);
-        assertEquals(2, comments.size());
-        assertEquals("New Comment", comments.get(1).getContent());
+        Post result = postService.getPostById(1L);
+
+        assertNotNull(result);
+        assertEquals("Test Post", result.getTitle());
     }
 
     @Test
     void testUpdatePost() {
-        Post updatedPost = new Post(testPost.getId(), "Updated Title", "Updated image","Updated content", "updated tags", 0, 0);
-        postService.updatePost(testPost.getId(), updatedPost);
-        Post foundPost = postService.getPostById(testPost.getId());
-        assertNotNull(foundPost);
-        assertEquals(updatedPost.getTitle(), foundPost.getTitle());
-        assertEquals(updatedPost.getContent(), foundPost.getContent());
+        when(postRepository.findById(anyLong())).thenReturn(Optional.of(post));
+        when(postRepository.save(any(Post.class))).thenReturn(post);
+
+        Post updatedPost = new Post();
+        updatedPost.setTitle("Updated Title");
+        updatedPost.setContent("Updated Content");
+
+        postService.updatePost(1L, updatedPost);
+
+        assertEquals("Updated Title", post.getTitle());
+        assertEquals("Updated Content", post.getContent());
+        verify(postRepository, times(1)).save(any(Post.class));
     }
 
     @Test
     void testLikePost() {
-        int initialLikes = testPost.getLikesCount();
-        postService.likePost(testPost.getId());
-        Post foundPost = postService.getPostById(testPost.getId());
-        assertNotNull(foundPost);
-        assertEquals(initialLikes + 1, foundPost.getLikesCount());
+        when(postRepository.findById(anyLong())).thenReturn(Optional.of(post));
+        doNothing().when(postRepository).updateLikes(anyLong(), anyInt());
+
+        postService.likePost(1L);
+
+        assertEquals(11, post.getLikesCount());
+        verify(postRepository, times(1)).updateLikes(anyLong(), anyInt());
     }
 
     @Test
     void testIncreaseCommentCount() {
-        int initialCommentCount = testPost.getCommentsCount();
-        postService.increaseCommentCount(testPost.getId());
-        Post foundPost = postService.getPostById(testPost.getId());
-        assertNotNull(foundPost);
-        assertEquals(initialCommentCount + 1, foundPost.getCommentsCount());
+        when(postRepository.findById(anyLong())).thenReturn(Optional.of(post));
+
+        doNothing().when(postRepository).updateComments(anyLong(), anyInt());
+
+
+        postService.increaseCommentCount(1L);
+
+        assertEquals(6, post.getCommentsCount());
+        verify(postRepository, times(1)).updateComments(anyLong(), anyInt());
     }
 
     @Test
     void testDecreaseCommentCount() {
-        int initialCommentCount = testPost.getCommentsCount();
-        postService.decreaseCommentCount(testPost.getId());
-        Post foundPost = postService.getPostById(testPost.getId());
-        assertNotNull(foundPost);
-        assertEquals(initialCommentCount - 1, foundPost.getCommentsCount());
+        when(postRepository.findById(anyLong())).thenReturn(Optional.of(post));
+
+        doNothing().when(postRepository).updateComments(anyLong(), anyInt());
+        postService.decreaseCommentCount(1L);
+
+        assertEquals(4, post.getCommentsCount());
+        verify(postRepository, times(1)).updateComments(anyLong(), anyInt());
+    }
+
+    @Test
+    void testAddComment() {
+        when(commentRepository.save(any(Comment.class))).thenReturn(comment);
+        when(postRepository.findById(anyLong())).thenReturn(Optional.of(post));
+
+        postService.addComment(1L, "New comment");
+
+        verify(commentRepository, times(1)).save(any(Comment.class));
+        verify(postRepository, times(1)).updateComments(anyLong(), anyInt());
+        assertEquals(6, post.getCommentsCount());
     }
 
     @Test
     void testGetShortContent() {
-        String content = "First paragraph.\n\nSecond paragraph.\nThird paragraph.";
-        String shortContent = postService.getShortContent(content);
-        assertNotNull(shortContent);
-        assertTrue(shortContent.contains("First paragraph."));
-        assertFalse(shortContent.contains("Second paragraph."));
+        String shortContent = postService.getShortContent("This is the first paragraph.\n\nThis is the second paragraph.");
+        assertEquals("This is the first paragraph.", shortContent);
+
+        String emptyContent = postService.getShortContent("");
+        assertEquals("", emptyContent);
     }
 }

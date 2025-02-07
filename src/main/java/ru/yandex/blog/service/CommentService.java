@@ -1,9 +1,12 @@
 package ru.yandex.blog.service;
 
 import org.springframework.stereotype.Service;
+import ru.yandex.blog.exception.CommentNotFoundException;
 import ru.yandex.blog.model.Comment;
 import ru.yandex.blog.repository.CommentRepository;
 import ru.yandex.blog.repository.PostRepository;
+
+import java.util.Optional;
 
 @Service
 public class CommentService {
@@ -13,12 +16,16 @@ public class CommentService {
         this.commentRepository = commentRepository;
     }
 
-    public Comment findById(Long id){
-        return commentRepository.findById(id);
+    public Comment findById(Long id) {
+        Optional<Comment> commentOptional = commentRepository.findById(id);
+        if (commentOptional.isEmpty()) {
+            throw new CommentNotFoundException("Comment with id " + id + " not found");
+        }
+        return commentOptional.get();
     }
 
-    public void updateComment(Comment comment) {
-        commentRepository.update(comment);
+    public void saveComment(Comment comment) {
+        commentRepository.save(comment);
     }
 
     public void deleteById(Long id) {

@@ -36,21 +36,23 @@ public class PostController {
         model.addAttribute("size", size);
         model.addAttribute("tag", tag);
 
-        return "posts";
+        return "listposts";
     }
 
     @PostMapping
     public String save(@ModelAttribute Post post) {
+        post.setLikesCount(0);
+        post.setCommentsCount(0);
         postService.save(post);
 
-        return "redirect:/posts";
+        return "redirect:/listposts";
     }
 
     @PostMapping(value = "/{id}", params = "_method=delete")
     public String delete(@PathVariable(name = "id") Long id) {
         postService.deleteById(id);
 
-        return "redirect:/posts";
+        return "redirect:/listposts";
     }
 
     @GetMapping("/{id}")
@@ -64,24 +66,24 @@ public class PostController {
         model.addAttribute("post", post);
         model.addAttribute("comments", comments);
 
-        return "post";
+        return "listposts";
     }
 
     @PostMapping("/{id}/edit")
     public String editPost(@PathVariable("id") Long id, @ModelAttribute Post post) {
         postService.updatePost(id, post);
-        return "redirect:/posts/" + id;
+        return "redirect:/listposts/" + id;
     }
 
     @PostMapping("/{id}/like")
     public String likePost(@PathVariable("id") Long id) {
         postService.likePost(id);
-        return "redirect:/posts/" + id;
+        return "redirect:/listposts/" + id;
     }
 
     @PostMapping("/{id}/comment")
     public String addComment(@PathVariable("id") Long id, @RequestParam("content") String content) {
         postService.addComment(id, content);
-        return "redirect:/posts/" + id;
+        return "redirect:/listposts/" + id;
     }
 }

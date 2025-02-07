@@ -3,10 +3,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- Название страницы-->
     <title>Лента постов</title>
 
-    <!-- Стили страницы -->
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -56,13 +54,13 @@
 <body>
 <h1>Лента постов</h1>
 <button class="btn-add" onclick="toggleForm()">Добавить пост</button>
-<form th:action="@{/posts}" method="get">
+<form th:action="@{/listposts}" method="get">
     <label for="tag">Фильтр по тегу:</label>
     <input type="text" id="tag" name="tag" th:value="${tag}">
     <button type="submit">Фильтровать</button>
 </form>
 <div>
-    <form th:action="@{/posts}" method="get">
+    <form th:action="@{/listposts}" method="get">
         <input type="hidden" name="tag" th:value="${tag}">
         <label for="size">Постов на странице:</label>
         <select id="size" name="size" onchange="this.form.submit()">
@@ -74,9 +72,9 @@
 </div>
 
 <div>
-    <a th:href="@{/posts(page=${currentPage - 1}, size=${size}, tag=${tag})}" th:if="${currentPage > 1}">Предыдущая</a>
+    <a th:href="@{/listposts(page=${currentPage - 1}, size=${size}, tag=${tag})}" th:if="${currentPage > 1}">Предыдущая</a>
     <span th:text="${currentPage}"></span>
-    <a th:href="@{/posts(page=${currentPage + 1}, size=${size}, tag=${tag})}">Следующая</a>
+    <a th:href="@{/listposts(page=${currentPage + 1}, size=${size}, tag=${tag})}">Следующая</a>
 </div>
 <table>
     <thead>
@@ -91,16 +89,15 @@
     </thead>
     <tbody>
 
-    <!-- Цикл по пользователям из атрибута users-->
-    <tr th:each="post : ${posts}">
-        <td><a th:href="@{/posts/{id}(id=${post.id})}" th:text="${post.title}"></a></td>
+    <tr th:each="post : ${listposts}">
+        <td><a th:href="@{/listposts/{id}(id=${post.id})}" th:text="${post.title}"></a></td>
         <td><img th:src="${post.imageUrl}" alt="Картинка поста" style="max-width: 100px; height: auto;"/></td>
         <td th:text="${post.content}"/>
         <td th:text="${post.commentsCount}"/>
         <td th:text="${post.likesCount}"/>
         <td th:text="${post.tags}"/>
         <td>
-            <form th:action="@{/posts/{id}(id=${post.id})}" method="post" style="display:inline;">
+            <form th:action="@{/listposts/{id}(id=${post.id})}" method="post" style="display:inline;">
                 <input type="hidden" name="_method" value="delete">
                 <button type="submit">Удалить</button>
             </form>
@@ -109,10 +106,9 @@
     </tbody>
 </table>
 
-<!-- Скрываемая форма для добавления нового поста -->
 <div class="form-container" style="display: none;" id="postForm">
     <h2>Добавить пост</h2>
-    <form th:action="@{/posts}" method="POST">
+    <form th:action="@{/listposts}" method="POST">
         <label for="title">Название поста:</label>
         <input type="text" id="title" name="title" required>
 

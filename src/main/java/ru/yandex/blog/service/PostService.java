@@ -1,6 +1,7 @@
 package ru.yandex.blog.service;
 
 import org.springframework.stereotype.Service;
+import ru.yandex.blog.exception.PostNotFoundException;
 import ru.yandex.blog.model.Post;
 import ru.yandex.blog.model.Comment;
 import ru.yandex.blog.repository.CommentRepository;
@@ -8,6 +9,7 @@ import ru.yandex.blog.repository.PostRepository;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,7 +35,11 @@ public class PostService {
     }
 
     public Post getPostById(Long id) {
-        return postRepository.findById(id);
+        Optional<Post> optionalPost = postRepository.findById(id);
+        if (optionalPost.isEmpty()) {
+            throw new PostNotFoundException("Post with id " + id + " not found");
+        }
+        return optionalPost.get();
     }
 
     public List<Comment> getCommentsByPostId(Long postId) {
@@ -46,7 +52,7 @@ public class PostService {
         existing.setImageUrl(post.getImageUrl());
         existing.setContent(post.getContent());
         existing.setTags(post.getTags());
-        postRepository.update(existing);
+        postRepository.save(existing);
     }
 
     public void likePost(Long id) {

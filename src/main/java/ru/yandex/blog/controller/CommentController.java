@@ -21,9 +21,9 @@ public class CommentController {
     public String editComment(@PathVariable("id") Long id, @RequestParam(name = "content") String content) {
         Comment comment = commentService.findById(id);
         comment.setContent(content);
-        commentService.updateComment(comment);
+        commentService.saveComment(comment);
 
-        return "redirect:/posts/" + commentService.getPostIdByCommentId(id);
+        return "redirect:/listposts/" + commentService.getPostIdByCommentId(id);
     }
 
     @PostMapping("/{id}/delete")
@@ -32,6 +32,6 @@ public class CommentController {
         commentService.deleteById(id);
         postService.decreaseCommentCount(postId);
 
-        return "redirect:/posts/" + postId;
+        return "redirect:/listposts/" + postId;
     }
 }
